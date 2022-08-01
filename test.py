@@ -79,16 +79,14 @@ def push_git_tag(semver: SemVer) -> None:
     CMD_GIT_PUSH_TAG[3] = tag
     subprocess.check_call(CMD_GIT_PUSH_TAG)
 
-def get_last_commits(n: int) -> List[str]:
-    CMD_GIT_PRETTY_LOGS[3] = f"HEAD~{n}..HEAD"
+def get_diff_commits(prev_ver: str) -> List[str]:
+    CMD_GIT_PRETTY_LOGS[3] = f"{prev_ver}..HEAD"
     commits: str = run_cmd(CMD_GIT_PRETTY_LOGS)
-    if not commits:
-        return
+    commits: str = commits.replace("\"", "")
     return commits.split("\n")
 
 def get_commits(prev_ver: str, ver: str) -> List[str]:
-    cmd: List[str] = CMD_GIT_PRETTY_LOGS.copy()
-    cmd[3] = f"{prev_ver}..{ver}"
+    CMD_GIT_PRETTY_LOGS[3] = f"{prev_ver}..{ver}"
     commits: str = run_cmd(CMD_GIT_PRETTY_LOGS)
     commits: str = commits.replace("\"", "")
     commits: List[str] = commits.split("\n")
@@ -140,8 +138,9 @@ def check_is_hotfix(commits: List[str]) -> bool:
 def run():
     last_tag: str = get_last_git_tag()
     sv: SemVer = SemVer.get_from_str(last_tag)
-    last_commits: List[str] = get_last_commits(1)
-    is_hotfix: bool = check_is_hotfix(last_commits)
+    sv_ver: str = sv.to_string()
+    commits: List[str] = get_diff_commits(sv_ver)
+    is_hotfix: bool = check_is_hotfix(commits)
     print(f"{is_hotfix=}")
 
     new_sv: SemVer = None
@@ -153,7 +152,7 @@ def run():
     create_git_tag(new_sv)
 
     new_sv_ver: str = new_sv.to_string()
-    commits: List[str] = get_commits(sv.to_string(), new_sv_ver)
+    commits: List[str] = get_commits(sv_ver, new_sv_ver)
     if not commits:
         return
 
@@ -165,17 +164,17 @@ def run():
 
     filename: str = f"RELEASE_NOTES_{new_sv_ver}.md"
     with open(filename, "w") as file:
-        file.write("--------------------------------\n\n")
-        file.write(f"     RELEASE {new_sv_ver}\n\n")
-        file.write(f"   (this is auto-generated)\n\n")
-        file.write("--------------------------------\n\n")
+        lines: List[str] = []
+        lines.append("--------------------------------\n\n")
+        lines.append(f"       RELEASE {new_sv_ver}\n\n")
+        lines.append(f"   (this is auto-generated)\n\n")
+        lines.append("--------------------------------\n\n")
 
         ticket: int
         group: List[Commit]
         for ticket, group in grouped.items():
             is_multi: bool = len(group) > 1
 
-            lines: List[str] = []
             line: str = f"* CB-{ticket}"
 
             if is_multi:
@@ -198,7 +197,8 @@ def run():
                 else:
                     lines.append(f"{commit.msg} ({commit.email})\n")
 
-            file.writelines(lines)
+
+        file.writelines(lines)
 
     # push_git_tag(new_sv)
 
