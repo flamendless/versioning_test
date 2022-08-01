@@ -1,4 +1,5 @@
 import subprocess, re
+from pprint import pprint
 from dataclasses import dataclass
 from typing import List, Dict
 
@@ -198,6 +199,7 @@ def run():
                     lines.append(f"{commit.msg} ({commit.email})\n")
 
 
+        pprint(lines)
         file.writelines(lines)
 
     # push_git_tag(new_sv)
