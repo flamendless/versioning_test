@@ -66,6 +66,9 @@ def run_cmd(cmd: List[str]) -> str:
 def get_last_git_tag() -> str:
     tags: List[str] = run_cmd(CMD_GIT_GET_TAG).split("\n")
     tag: str = tags[-1]
+    if not tag:
+        raise Exception("No semver tag found. Please create one. Example: v0.0.1")
+
     if not tag.startswith("v"):
         raise Exception("Last tag is not a semver tag")
     return tag[1:]
