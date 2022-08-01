@@ -1,10 +1,14 @@
-import subprocess
+import subprocess, re
 from dataclasses import dataclass
 from typing import List
+
 
 CMD_GIT_GET_TAG: List[str] = ["git", "tag"]
 CMD_GIT_CREATE_TAG: List[str] = ["git", "tag", "<>"]
 CMD_GIT_PUSH_TAG: List[str] = ["git", "push", "origin", "<>"]
+CMD_GIT_PRETTY_LOGS: List[str] = ["git", "log", "--pretty=\"%s (%an)\"", "<>"]
+RE_HOTFIX = re.compile(r"^(.)+[HOTFIX|hotfix]")
+
 
 @dataclass
 class SemVer:
@@ -64,12 +68,27 @@ def push_git_tag(semver: SemVer) -> None:
     CMD_GIT_PUSH_TAG(3, tag)
     subprocess.check_call(CMD_GIT_PUSH_TAG)
 
-def get_latest_commit(ver: str) -> str:
-    cmd: List[str] = ["git", "log", "--pretty=\"%s (%an)\"", "<>"]
-    cmd[3] = f"{ver}..HEAD"
+def get_last_commits(n: int) -> List[str]:
+    CMD_GIT_PRETTY_LOGS[3] = f"HEAD~{n}..HEAD"
+    commits = None
+    try:
+        commits: bytes = subprocess.check_output(CMD_GIT_PRETTY_LOGS)
+    except subprocess.CalledProcessError as exc:
+        print(exc)
+        return
+
+    commits: str = stdout_to_str(commits)
+    if not commits:
+        return
+
+    commits: List[str] = commits.split("\n")
+    return commits
+
+def get_latest_commits(ver: str) -> List[str]:
+    CMD_GIT_PRETTY_LOGS[3] = f"{ver}..HEAD"
     logs = None
     try:
-        logs: bytes = subprocess.check_output(cmd)
+        logs: bytes = subprocess.check_output(CMD_GIT_PRETTY_LOGS)
     except subprocess.CalledProcessError as exc:
         print(exc)
         return
@@ -80,12 +99,21 @@ def get_latest_commit(ver: str) -> str:
         return
 
     logs: List[str] = logs.split("\n")
+    return logs
 
 
 last_tag: str = get_last_git_tag()
 sv: SemVer = SemVer.get_from_str(last_tag)
+commits: List[str] = get_last_commits(1)
+
+commit: str
+for commit in commits:
+    if re.match(RE_HOTFIX, commit):
+        print(1)
+        break
+
 # sv = sv.inc_semver("major")
-logs: str = get_latest_commit(sv.to_string())
-print(logs)
+# logs: List[str] = get_latest_commits(sv.to_string())
+# print(logs)
 # create_git_tag(sv)
 # push_git_tag(sv)
