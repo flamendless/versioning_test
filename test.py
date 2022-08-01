@@ -202,7 +202,7 @@ def run():
         pprint(lines)
         file.writelines(lines)
 
-    # push_git_tag(new_sv)
+    push_git_tag(new_sv)
 
 
 if __name__ == "__main__":
