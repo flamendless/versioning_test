@@ -250,10 +250,12 @@ def run():
         file.writelines(lines)
 
     orig_data: str = ""
+    print(orig_data)
     with open(APPEND_PATH, "r") as file:
         orig_data = file.read()
 
     lines.append(orig_data)
+    print(lines)
 
     with open(APPEND_PATH, "w") as file:
         file.writelines(lines)
