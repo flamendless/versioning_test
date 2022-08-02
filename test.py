@@ -12,7 +12,7 @@ RE_HOTFIX = re.compile(r"^(.)+[HOTFIX|hotfix]")
 RE_CB = re.compile(r"^\[?CB-?[0-9]*\]?")
 RE_EMAIL = re.compile(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+")
 
-INDENT: str = "  "
+INDENT: str = "     "
 
 
 @dataclass
@@ -181,9 +181,7 @@ def run():
 
             line: str = f"* CB-{ticket}"
 
-            if is_multi:
-                line = line + "\n"
-            else:
+            if not is_multi:
                 line = f"{line} - "
                 lines.append(line)
 
@@ -195,9 +193,9 @@ def run():
                 if is_multi:
                     if not has_email:
                         has_email = True
-                        line = f"{line} ({commit.email}) - \n"
+                        line = f"{line} ({commit.email}):\n"
                         lines.append(line)
-                    lines.append(f"{INDENT} {n}. {commit.msg}\n")
+                    lines.append(f"{INDENT} {(n + 1)}. {commit.msg}\n")
                 else:
                     lines.append(f"{commit.msg} ({commit.email})\n")
 
@@ -205,7 +203,7 @@ def run():
         pprint(lines)
         file.writelines(lines)
 
-    push_git_tag(new_sv)
+    # push_git_tag(new_sv)
 
 
 if __name__ == "__main__":
