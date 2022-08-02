@@ -108,6 +108,11 @@ def process_commits(commits: List[str]) -> List[Commit]:
 
     commit: str
     for commit in commits:
+        if commit.startswith("["):
+            commit = commit[1:]
+            closing_start = commit.find("]")
+            commit = commit[:closing_start] + commit[(closing_start + 1):]
+
         email: str = re.findall(RE_EMAIL, commit)[0]
 
         start: int = commit.find("CB-")
@@ -116,11 +121,7 @@ def process_commits(commits: List[str]) -> List[Commit]:
         ticket: int = "".join(n)
 
         start2: int = len(f"CB-{ticket} ")
-        temp_msg: str = commit[start2:-(len(email) + 3)]
-
-        msg: str = ""
-        for char in temp_msg:
-            msg += char if char.isalnum() or char.isspace() else ""
+        msg: str = commit[start2:-(len(email) + 3)]
 
         processed.append(Commit(ticket, msg, email))
 
