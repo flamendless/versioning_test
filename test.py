@@ -120,7 +120,7 @@ def process_commits(commits: List[str]) -> List[Commit]:
 
         msg: str = ""
         for char in temp_msg:
-            msg += char if char.isalpha() else ""
+            msg += char if char.isalnum() else ""
 
         processed.append(Commit(ticket, msg, email))
 
