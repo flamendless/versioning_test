@@ -1,12 +1,16 @@
-import subprocess, re
+import subprocess, re, os
 from pprint import pprint
 from dataclasses import dataclass
 from typing import List, Dict
 
+PATH: str = "templates/contributors/release_notes/"
 CMD_GIT_GET_TAG: List[str] = ["git", "tag"]
 CMD_GIT_CREATE_TAG: List[str] = ["git", "tag", "<>"]
 CMD_GIT_PUSH_TAG: List[str] = ["git", "push", "origin", "<>"]
 CMD_GIT_PRETTY_LOGS: List[str] = ["git", "log", "--pretty=\"%s (%ae)\"", "<>"]
+CMD_GIT_ADD_FILES: List[str] = ["git", "add", "<>"]
+CMD_GIT_COMMIT_FILES: List[str] = ["git", "commit", "-m", "<>"]
+CMD_GIT_PUSH: List[str] = ["git", "push"]
 
 RE_HOTFIX = re.compile(r"^\[?[HOTFIX|hotfix]\]?")
 RE_CB = re.compile(r"^\[?CB-?[0-9]*\]?")
@@ -143,6 +147,18 @@ def check_is_hotfix(commits: List[str]) -> bool:
             return True
     return False
 
+def git_push(path: str, sv: SemVer):
+    CMD_GIT_ADD_FILES[2] = path
+    add: str = run_cmd(CMD_GIT_ADD_FILES)
+    print(add)
+
+    CMD_GIT_COMMIT_FILES[3] = f"Generated release note: {sv.to_string()}"
+    commit: str = run_cmd(CMD_GIT_COMMIT_FILES)
+    print(commit)
+
+    push: str = run_cmd(CMD_GIT_PUSH)
+    print(push)
+
 def run():
     last_tag: str = get_last_git_tag()
     sv: SemVer = SemVer.get_from_str(last_tag)
@@ -170,7 +186,7 @@ def run():
 
     grouped: Dict[str, List[Commit]] = group_by_tickets(gen_list)
 
-    filename: str = f"RELEASE_NOTES_{new_sv_ver}.md"
+    filename: str = f"{PATH}/RELEASE_NOTES_{new_sv_ver}.md"
     with open(filename, "w") as file:
         lines: List[str] = []
         lines.append("--------------------------------\n\n")
@@ -209,8 +225,12 @@ def run():
         pprint(lines)
         file.writelines(lines)
 
-    # push_git_tag(new_sv)
+    push_git_tag(new_sv)
+    git_push(filename, new_sv)
 
 
 if __name__ == "__main__":
+    if not os.path.exists(PATH):
+        os.makedirs(PATH)
+
     run()
