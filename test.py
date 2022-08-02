@@ -8,7 +8,7 @@ CMD_GIT_CREATE_TAG: List[str] = ["git", "tag", "<>"]
 CMD_GIT_PUSH_TAG: List[str] = ["git", "push", "origin", "<>"]
 CMD_GIT_PRETTY_LOGS: List[str] = ["git", "log", "--pretty=\"%s (%ae)\"", "<>"]
 
-RE_HOTFIX = re.compile(r"^(.)+[HOTFIX|hotfix]")
+RE_HOTFIX = re.compile(r"^\[?[HOTFIX|hotfix]\]?")
 RE_CB = re.compile(r"^\[?CB-?[0-9]*\]?")
 RE_EMAIL = re.compile(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+")
 
@@ -120,7 +120,7 @@ def process_commits(commits: List[str]) -> List[Commit]:
 
         msg: str = ""
         for char in temp_msg:
-            msg += char if char.isalnum() else ""
+            msg += char if char.isalnum() or char.isspace() else ""
 
         processed.append(Commit(ticket, msg, email))
 
@@ -209,7 +209,7 @@ def run():
         pprint(lines)
         file.writelines(lines)
 
-    # push_git_tag(new_sv)
+    push_git_tag(new_sv)
 
 
 if __name__ == "__main__":
