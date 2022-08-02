@@ -202,7 +202,6 @@ def run():
             line: str = f"* CB-{ticket}"
 
             if not is_multi:
-                line = f"{line} - "
                 lines.append(line)
 
             has_email: bool = False
@@ -213,7 +212,7 @@ def run():
                 if is_multi:
                     if not has_email:
                         has_email = True
-                        line = f"{line} ({commit.email}):\n"
+                        line = f"{line} ({commit.email}):\n\n"
                         lines.append(line)
                     lines.append(f"{INDENT} {(n + 1)}. {commit.msg}\n")
                 else:
