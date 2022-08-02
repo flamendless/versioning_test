@@ -1,14 +1,39 @@
+# Auto generation of release notes from commits -> markdown based on tags
+#
+#    Standard commit format to follow:
+
+#        1. The following are accepted for CB commit:
+#           (the important is the CB-XX at the start)
+#            -> CB-XX - message
+#            -> CB-XX message reference CB-YY
+#            -> [CB-XX] - message
+#            -> [CB-XX] message reference CB-YY
+#
+#        2. The following are accepted for HOTFIX commit:
+#           (the important is the HOTFIX/hotfix at the start)
+#            -> HOTFIX - hey
+#            -> hotfix - hey
+#            -> [HOTFIX] hey
+#            -> [HOTFIX] hey
+#
+#
+# Script by: Brandon Blanker Lim-it (@flamendless)
+#
+#
+
 import subprocess, re, os
 from pprint import pprint
 from dataclasses import dataclass
 from typing import List, Dict
 
 PATH: str = "templates/contributors/release_notes/"
+APPEND_PATH: str = "templates/contributors/releases.md"
+
 CMD_GIT_GET_TAG: List[str] = ["git", "tag"]
 CMD_GIT_CREATE_TAG: List[str] = ["git", "tag", "<>"]
 CMD_GIT_PUSH_TAG: List[str] = ["git", "push", "origin", "<>"]
 CMD_GIT_PRETTY_LOGS: List[str] = ["git", "log", "--pretty=\"%s (%ae)\"", "<>"]
-CMD_GIT_ADD_FILES: List[str] = ["git", "add", "<>"]
+CMD_GIT_ADD_FILES: List[str] = ["git", "add", "<>", "<>"]
 CMD_GIT_COMMIT_FILES: List[str] = ["git", "commit", "-m", "<>"]
 CMD_GIT_PUSH: List[str] = ["git", "push"]
 
@@ -149,6 +174,7 @@ def check_is_hotfix(commits: List[str]) -> bool:
 
 def git_push(path: str, sv: SemVer):
     CMD_GIT_ADD_FILES[2] = path
+    CMD_GIT_ADD_FILES[3] = APPEND_PATH
     add: str = run_cmd(CMD_GIT_ADD_FILES)
     print(add)
 
@@ -220,12 +246,20 @@ def run():
 
             lines.append("\n")
 
-
         pprint(lines)
         file.writelines(lines)
 
-    push_git_tag(new_sv)
-    git_push(filename, new_sv)
+    orig_data: str = ""
+    with open(APPEND_PATH, "r") as file:
+        orig_data = file.read()
+
+    lines.append(orig_data)
+
+    with open(APPEND_PATH, "w") as file:
+        file.writelines(lines)
+
+    # push_git_tag(new_sv)
+    # git_push(filename, new_sv)
 
 
 if __name__ == "__main__":
