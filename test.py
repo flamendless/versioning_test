@@ -116,7 +116,11 @@ def process_commits(commits: List[str]) -> List[Commit]:
         ticket: int = "".join(n)
 
         start2: int = len(f"CB-{ticket} ")
-        msg: str = commit[start2:-(len(email) + 3)]
+        temp_msg: str = commit[start2:-(len(email) + 3)]
+
+        msg: str = ""
+        for char in temp_msg:
+            msg += char if char.isalpha() else ""
 
         processed.append(Commit(ticket, msg, email))
 
