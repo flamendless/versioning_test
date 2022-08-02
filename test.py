@@ -115,9 +115,8 @@ def process_commits(commits: List[str]) -> List[Commit]:
 
         email: str = re.findall(RE_EMAIL, commit)[0]
 
-        start: int = commit.find("CB-")
-        subticket: str  = commit[:(start + 4)]
-        n: List[str] = [i for i in subticket if i.isdigit()]
+        cb_ticket: str = re.match(RE_CB, commit).group()
+        n: List[str] = [i for i in cb_ticket if i.isdigit()]
         ticket: int = "".join(n)
 
         start2: int = len(f"CB-{ticket} ")
