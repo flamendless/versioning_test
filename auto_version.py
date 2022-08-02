@@ -19,7 +19,10 @@
 #
 # Script by: Brandon Blanker Lim-it (@flamendless)
 #
-#
+# (NOTE: this script is written for the specific use-case,
+#        not yet modular and ready for other cases,
+#        thus written badly for now
+# )
 
 import subprocess, re, os
 from pprint import pprint
@@ -250,22 +253,22 @@ def run():
         file.writelines(lines)
 
     orig_data: str = ""
-    print(orig_data)
     with open(APPEND_PATH, "r") as file:
         orig_data = file.read()
-
     lines.append(orig_data)
-    print(lines)
-
     with open(APPEND_PATH, "w") as file:
         file.writelines(lines)
 
-    # push_git_tag(new_sv)
-    # git_push(filename, new_sv)
+    push_git_tag(new_sv)
+    git_push(filename, new_sv)
 
 
 if __name__ == "__main__":
     if not os.path.exists(PATH):
         os.makedirs(PATH)
+
+    if not os.path.exists(APPEND_PATH):
+        from pathlib import Path
+        Path(APPEND_PATH).touch()
 
     run()
