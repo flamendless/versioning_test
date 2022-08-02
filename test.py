@@ -203,6 +203,8 @@ def run():
                 else:
                     lines.append(f"{commit.msg} ({commit.email})\n")
 
+            lines.append("\n")
+
 
         pprint(lines)
         file.writelines(lines)
