@@ -27,12 +27,12 @@
 import subprocess, re, os
 from pprint import pprint
 from dataclasses import dataclass
-from typing import List, Dict
+from typing import List, Dict, Tuple
 
-PATH: str = "templates/contributors/release_notes/"
+PATH: str = "templates/contributors/release_notes"
 APPEND_PATH: str = "templates/contributors/releases.md"
 
-CMD_GIT_GET_TAG: List[str] = ["git", "tag"]
+CMD_GIT_GET_TAG: List[str] = ["git", "describe", "--tags", "--abbrev=0"]
 CMD_GIT_CREATE_TAG: List[str] = ["git", "tag", "<>"]
 CMD_GIT_PUSH_TAG: List[str] = ["git", "push", "origin", "<>"]
 CMD_GIT_PRETTY_LOGS: List[str] = ["git", "log", "--pretty=\"%s (%ae)\"", "<>"]
@@ -60,6 +60,8 @@ class SemVer:
     minor: int
     rel: int
 
+    prefix_v: bool = True
+
     def __post_init__(self: "SemVer") -> None:
         print(f"Created: {self.to_string()}")
 
@@ -70,7 +72,8 @@ class SemVer:
         return setattr(self, key, new_value)
 
     def to_string(self: "SemVer") -> str:
-        return f"v{self.major}.{self.minor}.{self.rel}"
+        prefix: str = "v" if SemVer.prefix_v else ""
+        return f"{prefix}{self.major}.{self.minor}.{self.rel}"
 
     def inc_semver(self: "SemVer", field: str) -> "SemVer":
         new_vals = {
@@ -95,15 +98,18 @@ def run_cmd(cmd: List[str]) -> str:
     except subprocess.CalledProcessError as exc:
         raise Exception(exc)
 
-def get_last_git_tag() -> str:
+def get_last_git_tag() -> Tuple[str, bool]:
     tags: List[str] = run_cmd(CMD_GIT_GET_TAG).split("\n")
     tag: str = tags[-1]
     if not tag:
         raise Exception("No semver tag found. Please create one. Example: v0.0.1")
 
-    if not tag.startswith("v"):
-        raise Exception("Last tag is not a semver tag")
-    return tag[1:]
+    if tag.startswith("v"):
+        return (tag[1:], True)
+    if tag[0].isdigit():
+        return (tag, False)
+
+    raise Exception("Last tag is not a semver tag")
 
 def create_git_tag(semver: SemVer) -> None:
     tag: str = semver.to_string()
@@ -189,7 +195,11 @@ def git_push(path: str, sv: SemVer):
     print(push)
 
 def run():
-    last_tag: str = get_last_git_tag()
+    last_tag_data: Tuple[str, bool] = get_last_git_tag()
+    last_tag: str = last_tag_data[0]
+    has_v: bool = last_tag_data[1]
+    SemVer.prefix_v = has_v
+
     sv: SemVer = SemVer.get_from_str(last_tag)
     sv_ver: str = sv.to_string()
     commits: List[str] = get_diff_commits(sv_ver)
@@ -206,6 +216,7 @@ def run():
 
     new_sv_ver: str = new_sv.to_string()
     commits: List[str] = get_commits(sv_ver, new_sv_ver)
+    print(f"{commits=}")
     if not commits:
         return
 
@@ -251,6 +262,7 @@ def run():
 
         pprint(lines)
         file.writelines(lines)
+    print(f"Written: {filename}")
 
     orig_data: str = ""
     with open(APPEND_PATH, "r") as file:
@@ -258,9 +270,10 @@ def run():
     lines.append(orig_data)
     with open(APPEND_PATH, "w") as file:
         file.writelines(lines)
+    print(f"Written: {APPEND_PATH}")
 
-    push_git_tag(new_sv)
-    git_push(filename, new_sv)
+    # push_git_tag(new_sv)
+    # git_push(filename, new_sv)
 
 
 if __name__ == "__main__":
