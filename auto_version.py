@@ -157,7 +157,7 @@ def process_commits(commits: List[str]) -> List[Commit]:
         n: List[str] = [i for i in cb_ticket if i.isdigit()]
         ticket: int = "".join(n)
 
-        start2: int = len(f"CB-{ticket} ")
+        start2: int = len(f"CB-{ticket}  ")
         msg: str = commit[start2:-(len(email) + 3)]
 
         processed.append(Commit(ticket, msg, email))
@@ -232,6 +232,7 @@ def run():
         lines.append("--------------------------------\n\n")
         lines.append(f"       RELEASE {new_sv_ver}\n\n")
         lines.append(f"   (this is auto-generated)\n\n")
+        lines.append(f"   (script by Brandon Lim-it)\n\n")
         lines.append("--------------------------------\n\n")
 
         ticket: int
@@ -252,11 +253,11 @@ def run():
                 if is_multi:
                     if not has_email:
                         has_email = True
-                        line = f"{line} ({commit.email}):\n\n"
+                        line = f"{line}  ({commit.email}):\n\n"
                         lines.append(line)
                     lines.append(f"{INDENT} {(n + 1)}. {commit.msg}\n")
                 else:
-                    lines.append(f"{commit.msg} ({commit.email})\n")
+                    lines.append(f"{commit.msg}  ({commit.email})\n")
 
             lines.append("\n")
 
