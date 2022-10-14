@@ -24,7 +24,7 @@
 #        thus written badly for now
 # )
 
-import subprocess, re, os
+import subprocess, re, os, sys
 from pprint import pprint
 from dataclasses import dataclass
 from typing import List, Dict, Tuple
@@ -34,7 +34,7 @@ APPEND_PATH: str = "templates/contributors/releases.md"
 
 CMD_GIT_GET_TAG: List[str] = ["git", "describe", "--tags", "--abbrev=0"]
 CMD_GIT_CREATE_TAG: List[str] = ["git", "tag", "<>"]
-CMD_GIT_PUSH_TAG: List[str] = ["git", "push", "origin", "<>"]
+CMD_GIT_PUSH_TAG: List[str] = ["git", "push", "orign", "<>"]
 CMD_GIT_PRETTY_LOGS: List[str] = ["git", "log", "--pretty=\"%s (%ae)\"", "<>"]
 CMD_GIT_ADD_FILES: List[str] = ["git", "add", "<>", "<>"]
 CMD_GIT_COMMIT_FILES: List[str] = ["git", "commit", "-m", "<>"]
@@ -42,6 +42,7 @@ CMD_GIT_PUSH: List[str] = ["git", "push"]
 
 RE_HOTFIX = re.compile(r"^\[?[HOTFIX|hotfix]\]?")
 RE_CB = re.compile(r"^\[?CB-?[0-9]*\]?")
+RE_BOSS = re.compile(r"^\[?BOSS-?[0-9]*\]?")
 RE_EMAIL = re.compile(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+")
 
 INDENT: str = "     "
@@ -52,6 +53,7 @@ class Commit:
     ticket: int
     msg: str
     email: str
+    team: str
 
 
 @dataclass
@@ -138,6 +140,8 @@ def get_commits(prev_ver: str, ver: str) -> List[str]:
     for commit in commits:
         if re.match(RE_CB, commit):
             valid_commits.append(commit)
+        if re.match(RE_BOSS, commit):
+            valid_commits.append(commit)
 
     return valid_commits
 
@@ -153,14 +157,28 @@ def process_commits(commits: List[str]) -> List[Commit]:
 
         email: str = re.findall(RE_EMAIL, commit)[0]
 
-        cb_ticket: str = re.match(RE_CB, commit).group()
-        n: List[str] = [i for i in cb_ticket if i.isdigit()]
-        ticket: int = "".join(n)
+        cb_ticket: str = re.match(RE_CB, commit)
+        if cb_ticket:
+            cb_ticket = cb_ticket.group()
+            n: List[str] = [i for i in cb_ticket if i.isdigit()]
+            ticket: int = "".join(n)
 
-        start2: int = len(f"CB-{ticket}  ")
-        msg: str = commit[start2:-(len(email) + 3)]
+            start2: int = len(f"CB-{ticket}  ")
+            msg: str = commit[start2:-(len(email) + 3)]
 
-        processed.append(Commit(ticket, msg, email))
+            processed.append(Commit(ticket, msg, email, "CB"))
+
+        # BOSS
+        boss_ticket: str = re.match(RE_BOSS, commit)
+        if boss_ticket:
+            boss_ticket = boss_ticket.group()
+            n: List[str] = [i for i in boss_ticket if i.isdigit()]
+            ticket: int = "".join(n)
+
+            start2: int = len(f"BOSS-{ticket}  ")
+            msg: str = commit[start2:-(len(email) + 3)]
+
+            processed.append(Commit(ticket, msg, email, "BOSS"))
 
     return processed
 
@@ -175,6 +193,9 @@ def group_by_tickets(commits: List[Commit]) -> Dict[str, List[Commit]]:
     return grouped
 
 def check_is_hotfix(commits: List[str]) -> bool:
+    if "hotfix" in sys.argv:
+        return True
+
     commit: str
     for commit in commits:
         if re.match(RE_HOTFIX, commit):
@@ -232,14 +253,16 @@ def run():
         lines.append("--------------------------------\n\n")
         lines.append(f"       RELEASE {new_sv_ver}\n\n")
         lines.append(f"   (this is auto-generated)\n\n")
-        lines.append(f"   (script by Brandon Lim-it)\n\n")
+        lines.append(f"   (script by Brandon Blanker Lim-it)\n\n")
         lines.append("--------------------------------\n\n")
 
         ticket: int
         group: List[Commit]
         for ticket, group in grouped.items():
+            print(ticket, group)
             is_multi: bool = len(group) > 1
 
+            # line: str = f"* {}"
             line: str = f"* CB-{ticket}"
 
             if not is_multi:
@@ -262,19 +285,27 @@ def run():
             lines.append("\n")
 
         pprint(lines)
-        file.writelines(lines)
+        if "test" in sys.argv:
+            print("test mode, no files are generated")
+        else:
+            file.writelines(lines)
     print(f"Written: {filename}")
 
     orig_data: str = ""
     with open(APPEND_PATH, "r") as file:
         orig_data = file.read()
     lines.append(orig_data)
+
+    if "test" in sys.argv:
+        print("test mode, not git push")
+        return
+
     with open(APPEND_PATH, "w") as file:
         file.writelines(lines)
     print(f"Written: {APPEND_PATH}")
 
-    # push_git_tag(new_sv)
-    # git_push(filename, new_sv)
+    push_git_tag(new_sv)
+    git_push(filename, new_sv)
 
 
 if __name__ == "__main__":
