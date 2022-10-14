@@ -259,11 +259,9 @@ def run():
         ticket: int
         group: List[Commit]
         for ticket, group in grouped.items():
-            print(ticket, group)
             is_multi: bool = len(group) > 1
 
-            # line: str = f"* {}"
-            line: str = f"* CB-{ticket}"
+            line: str = f"* {group[0].team}-{ticket}"
 
             if not is_multi:
                 lines.append(line)
