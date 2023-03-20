@@ -34,7 +34,7 @@ APPEND_PATH: str = "templates/contributors/releases.md"
 
 CMD_GIT_GET_TAG: List[str] = ["git", "describe", "--tags", "--abbrev=0"]
 CMD_GIT_CREATE_TAG: List[str] = ["git", "tag", "<>"]
-CMD_GIT_PUSH_TAG: List[str] = ["git", "push", "orign", "<>"]
+CMD_GIT_PUSH_TAG: List[str] = ["git", "push", "origin", "<>"]
 CMD_GIT_PRETTY_LOGS: List[str] = ["git", "log", "--pretty=\"%s (%ae)\"", "<>"]
 CMD_GIT_ADD_FILES: List[str] = ["git", "add", "<>", "<>"]
 CMD_GIT_COMMIT_FILES: List[str] = ["git", "commit", "-m", "<>"]
@@ -84,6 +84,22 @@ class SemVer:
             "rel": self.rel,
         }
         new_vals[field] = int(new_vals[field]) + 1
+        return SemVer(**new_vals)
+
+    def update_semver(self: "SemVer", is_hotfix: bool) -> "SemVer":
+        new_vals: Dict[str, int] = None
+        if is_hotfix:
+            new_vals = {
+                "major": self.major,
+                "minor": self.minor,
+                "rel": self.rel + 1,
+            }
+        else:
+            new_vals = {
+                "major": self.major,
+                "minor": self.minor + 1,
+                "rel": 0,
+            }
         return SemVer(**new_vals)
 
     @staticmethod
@@ -227,11 +243,11 @@ def run():
     is_hotfix: bool = check_is_hotfix(commits)
     print(f"{is_hotfix=}")
 
-    new_sv: SemVer = None
-    if is_hotfix:
-        new_sv = sv.inc_semver("rel")
-    else:
-        new_sv = sv.inc_semver("minor")
+    new_sv: SemVer = sv.update_semver(is_hotfix)
+    # if is_hotfix:
+    #     new_sv = sv.inc_semver("rel")
+    # else:
+    #     new_sv = sv.inc_semver("minor")
 
     create_git_tag(new_sv)
 
