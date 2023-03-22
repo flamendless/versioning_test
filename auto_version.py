@@ -24,6 +24,10 @@
 #        thus written badly for now
 # )
 
+# USAGE:
+# python3 auto_version
+# python3 auto_version hotfix
+
 import subprocess, re, os, sys
 from pprint import pprint
 from dataclasses import dataclass
@@ -92,12 +96,12 @@ class SemVer:
             new_vals = {
                 "major": self.major,
                 "minor": self.minor,
-                "rel": self.rel + 1,
+                "rel": int(self.rel) + 1,
             }
         else:
             new_vals = {
                 "major": self.major,
-                "minor": self.minor + 1,
+                "minor": int(self.minor) + 1,
                 "rel": 0,
             }
         return SemVer(**new_vals)
