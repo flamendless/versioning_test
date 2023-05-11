@@ -26,19 +26,23 @@
 
 # USAGE:
 # python3 auto_version
-# python3 auto_version manual
+# python3 auto_version auto
 # python3 auto_version hotfix
-# python3 auto_version hotfix manual
+# python3 auto_version hotfix auto
 
-import subprocess, re, os, sys
+import subprocess
+import re
+import os
+import sys
 from pprint import pprint
 from dataclasses import dataclass
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Union, Pattern
 
 PATH: str = "templates/contributors/release_notes"
 APPEND_PATH: str = "templates/contributors/releases.md"
 
-CMD_GIT_GET_TAG: List[str] = ["git", "describe", "--tags", "--abbrev=0"]
+CMD_GIT_FETCH_TAGS: List[str] = ["git", "fetch", "--tags", "origin"]
+CMD_GIT_GET_TAG: str = "git rev-list --tags --timestamp --no-walk | sort -nr | head -n1 | cut -f 2 -d ' ' | xargs git describe --contains"
 CMD_GIT_CREATE_TAG: List[str] = ["git", "tag", "<>"]
 CMD_GIT_PUSH_TAG: List[str] = ["git", "push", "origin", "<>"]
 CMD_GIT_PRETTY_LOGS: List[str] = ["git", "log", "--pretty=\"%s (%ae)\"", "<>"]
@@ -52,6 +56,13 @@ RE_BOSS = re.compile(r"^\[?BOSS-?[0-9]*\]?")
 RE_EMAIL = re.compile(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+")
 
 INDENT: str = "     "
+
+INCLUDE_COMMIT_PREFIX: Dict[str, Pattern] = {
+    "HOTFIX": re.compile(r"^\[?[HOTFIX|hotfix]\]?"),
+    "CB": re.compile(r"^\[?CB-?[0-9]*\]?"),
+    "BOSS": re.compile(r"^\[?BOSS-?[0-9]*\]?"),
+    "OB": re.compile(r"^\[?OB-?[0-9]*\]?"),
+}
 
 
 @dataclass
@@ -114,17 +125,16 @@ class SemVer:
         return SemVer(major, minor, rel)
 
 
-def run_cmd(cmd: List[str]) -> str:
+def run_cmd(cmd: Union[List[str], str], shell: bool=False) -> str:
     try:
-        val: bytes = subprocess.check_output(cmd)
+        val: bytes = subprocess.check_output(cmd, shell=shell)
         val: str = val.decode("utf-8").rstrip("\n")
         return val
     except subprocess.CalledProcessError as exc:
         raise Exception(exc)
 
 def get_last_git_tag() -> Tuple[str, bool]:
-    tags: List[str] = run_cmd(CMD_GIT_GET_TAG).split("\n")
-    tag: str = tags[-1]
+    tag: str = run_cmd(CMD_GIT_GET_TAG, shell=True)
     if not tag:
         raise Exception("No semver tag found. Please create one. Example: v0.0.1")
 
@@ -161,10 +171,10 @@ def get_commits(prev_ver: str, ver: str) -> List[str]:
 
     commit: str
     for commit in commits:
-        if re.match(RE_CB, commit):
-            valid_commits.append(commit)
-        if re.match(RE_BOSS, commit):
-            valid_commits.append(commit)
+        for prefix, pattern in INCLUDE_COMMIT_PREFIX.items():
+            if re.match(pattern, commit):
+                valid_commits.append(commit)
+                break
 
     return valid_commits
 
@@ -180,28 +190,17 @@ def process_commits(commits: List[str]) -> List[Commit]:
 
         email: str = re.findall(RE_EMAIL, commit)[0]
 
-        cb_ticket: str = re.match(RE_CB, commit)
-        if cb_ticket:
-            cb_ticket = cb_ticket.group()
-            n: List[str] = [i for i in cb_ticket if i.isdigit()]
-            ticket: int = "".join(n)
+        for prefix, pattern in INCLUDE_COMMIT_PREFIX.items():
+            pre_ticket: str = re.match(pattern, commit)
+            if pre_ticket:
+                pre_ticket = pre_ticket.group()
+                n: List[str] = [i for i in pre_ticket if i.isdigit()]
+                ticket: int = "".join(n)
 
-            start2: int = len(f"CB-{ticket}  ")
-            msg: str = commit[start2:-(len(email) + 3)]
+                start2: int = len(f"{prefix}-{ticket}  ")
+                msg: str = commit[start2:-(len(email) + 3)]
 
-            processed.append(Commit(ticket, msg, email, "CB"))
-
-        # BOSS
-        boss_ticket: str = re.match(RE_BOSS, commit)
-        if boss_ticket:
-            boss_ticket = boss_ticket.group()
-            n: List[str] = [i for i in boss_ticket if i.isdigit()]
-            ticket: int = "".join(n)
-
-            start2: int = len(f"BOSS-{ticket}  ")
-            msg: str = commit[start2:-(len(email) + 3)]
-
-            processed.append(Commit(ticket, msg, email, "BOSS"))
+                processed.append(Commit(ticket, msg, email, prefix))
 
     return processed
 
@@ -239,6 +238,8 @@ def git_push(path: str, sv: SemVer):
     print(push)
 
 def run():
+    subprocess.check_call(CMD_GIT_FETCH_TAGS)
+
     last_tag_data: Tuple[str, bool] = get_last_git_tag()
     last_tag: str = last_tag_data[0]
     has_v: bool = last_tag_data[1]
@@ -251,10 +252,6 @@ def run():
     print(f"{is_hotfix=}")
 
     new_sv: SemVer = sv.update_semver(is_hotfix)
-    # if is_hotfix:
-    #     new_sv = sv.inc_semver("rel")
-    # else:
-    #     new_sv = sv.inc_semver("minor")
 
     create_git_tag(new_sv)
 
@@ -275,8 +272,8 @@ def run():
         lines: List[str] = []
         lines.append("--------------------------------\n\n")
         lines.append(f"       RELEASE {new_sv_ver}\n\n")
-        lines.append(f"   (this is auto-generated)\n\n")
-        lines.append(f"   (script by Brandon Blanker Lim-it)\n\n")
+        lines.append("   (this is auto-generated)\n\n")
+        lines.append("   (script by @omi-donlimit)\n\n")
         lines.append("--------------------------------\n\n")
 
         ticket: int
@@ -325,11 +322,11 @@ def run():
         file.writelines(lines)
     print(f"Written: {APPEND_PATH}")
 
-    if "manual" not in sys.argv:
+    if "auto" in sys.argv:
         push_git_tag(new_sv)
         git_push(filename, new_sv)
     else:
-        print("Manual mode: please push manually")
+        print("Please use `auto` flag to auto commit and push or manually do it")
 
 
 if __name__ == "__main__":
