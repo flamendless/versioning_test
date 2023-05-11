@@ -19,14 +19,16 @@
 #
 # Script by: Brandon Blanker Lim-it (@flamendless)
 #
-# (NOTE: this script is written for the specific use-case,
+# NOTE: (Brandon) this script is written for the specific use-case,
 #        not yet modular and ready for other cases,
 #        thus written badly for now
 # )
 
 # USAGE:
 # python3 auto_version
+# python3 auto_version manual
 # python3 auto_version hotfix
+# python3 auto_version hotfix manual
 
 import subprocess, re, os, sys
 from pprint import pprint
@@ -137,6 +139,7 @@ def create_git_tag(semver: SemVer) -> None:
     tag: str = semver.to_string()
     CMD_GIT_CREATE_TAG[2] = tag
     subprocess.check_call(CMD_GIT_CREATE_TAG)
+    print(f"Created tag: {tag}")
 
 def push_git_tag(semver: SemVer) -> None:
     tag: str = semver.to_string()
@@ -228,7 +231,7 @@ def git_push(path: str, sv: SemVer):
     add: str = run_cmd(CMD_GIT_ADD_FILES)
     print(add)
 
-    CMD_GIT_COMMIT_FILES[3] = f"Generated release note: {sv.to_string()}"
+    CMD_GIT_COMMIT_FILES[3] = f"Generate release note: {sv.to_string()}"
     commit: str = run_cmd(CMD_GIT_COMMIT_FILES)
     print(commit)
 
@@ -322,8 +325,11 @@ def run():
         file.writelines(lines)
     print(f"Written: {APPEND_PATH}")
 
-    push_git_tag(new_sv)
-    git_push(filename, new_sv)
+    if "manual" not in sys.argv:
+        push_git_tag(new_sv)
+        git_push(filename, new_sv)
+    else:
+        print("Manual mode: please push manually")
 
 
 if __name__ == "__main__":
