@@ -1,29 +1,6 @@
 # Auto generation of release notes from commits -> markdown based on tags
-#
-#    Standard commit format to follow:
-
-#        1. The following are accepted for CB commit:
-#           (the important is the CB-XX at the start)
-#            -> CB-XX - message
-#            -> CB-XX message reference CB-YY
-#            -> [CB-XX] - message
-#            -> [CB-XX] message reference CB-YY
-#
-#        2. The following are accepted for HOTFIX commit:
-#           (the important is the HOTFIX/hotfix at the start)
-#            -> HOTFIX - hey
-#            -> hotfix - hey
-#            -> [HOTFIX] hey
-#            -> [HOTFIX] hey
-#
-#
 # Script by: Brandon Blanker Lim-it (@flamendless)
 #
-# NOTE: (Brandon) this script is written for the specific use-case,
-#        not yet modular and ready for other cases,
-#        thus written badly for now
-# )
-
 # USAGE:
 # python3 auto_version
 # python3 auto_version auto
@@ -34,6 +11,7 @@ import subprocess
 import re
 import os
 import sys
+
 from pprint import pprint
 from dataclasses import dataclass
 from typing import List, Dict, Tuple, Union, Pattern
@@ -50,9 +28,6 @@ CMD_GIT_ADD_FILES: List[str] = ["git", "add", "<>", "<>"]
 CMD_GIT_COMMIT_FILES: List[str] = ["git", "commit", "-m", "<>"]
 CMD_GIT_PUSH: List[str] = ["git", "push"]
 
-RE_HOTFIX = re.compile(r"^\[?[HOTFIX|hotfix]\]?")
-RE_CB = re.compile(r"^\[?CB-?[0-9]*\]?")
-RE_BOSS = re.compile(r"^\[?BOSS-?[0-9]*\]?")
 RE_EMAIL = re.compile(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+")
 
 INDENT: str = "     "
@@ -61,6 +36,7 @@ INCLUDE_COMMIT_PREFIX: Dict[str, Pattern] = {
     "HOTFIX": re.compile(r"^\[?[HOTFIX|hotfix]\]?"),
     "CB": re.compile(r"^\[?CB-?[0-9]*\]?"),
     "BOSS": re.compile(r"^\[?BOSS-?[0-9]*\]?"),
+    "BOSSFIN": re.compile(r"^\[?BOSSFIN-?[0-9]*\]?"),
     "OB": re.compile(r"^\[?OB-?[0-9]*\]?"),
 }
 
@@ -217,14 +193,9 @@ def group_by_tickets(commits: List[Commit]) -> Dict[str, List[Commit]]:
 def check_is_hotfix(commits: List[str]) -> bool:
     if "hotfix" in sys.argv:
         return True
-
-    commit: str
-    for commit in commits:
-        if re.match(RE_HOTFIX, commit):
-            return True
     return False
 
-def git_push(path: str, sv: SemVer):
+def git_push(path: str, sv: SemVer) -> None:
     CMD_GIT_ADD_FILES[2] = path
     CMD_GIT_ADD_FILES[3] = APPEND_PATH
     add: str = run_cmd(CMD_GIT_ADD_FILES)
@@ -237,39 +208,29 @@ def git_push(path: str, sv: SemVer):
     push: str = run_cmd(CMD_GIT_PUSH)
     print(push)
 
-def run():
-    subprocess.check_call(CMD_GIT_FETCH_TAGS)
-
+def get_current_version() -> SemVer:
     last_tag_data: Tuple[str, bool] = get_last_git_tag()
     last_tag: str = last_tag_data[0]
     has_v: bool = last_tag_data[1]
     SemVer.prefix_v = has_v
-
     sv: SemVer = SemVer.get_from_str(last_tag)
+    return sv
+
+def process_tags(sv: SemVer) -> SemVer:
     sv_ver: str = sv.to_string()
     commits: List[str] = get_diff_commits(sv_ver)
     is_hotfix: bool = check_is_hotfix(commits)
     print(f"{is_hotfix=}")
-
     new_sv: SemVer = sv.update_semver(is_hotfix)
+    return new_sv
 
-    create_git_tag(new_sv)
-
-    new_sv_ver: str = new_sv.to_string()
-    commits: List[str] = get_commits(sv_ver, new_sv_ver)
-    print(f"{commits=}")
-    if not commits:
-        return
-
-    gen_list: List[Commit] = process_commits(commits)
-    if not gen_list:
-        return
-
-    grouped: Dict[str, List[Commit]] = group_by_tickets(gen_list)
-
-    filename: str = f"{PATH}/RELEASE_NOTES_{new_sv_ver}.md"
+def generate_release(
+    filename: str,
+    new_sv_ver: SemVer,
+    grouped: Dict[str, List[Commit]]
+) -> List[str]:
+    lines: List[str] = []
     with open(filename, "w") as file:
-        lines: List[str] = []
         lines.append("--------------------------------\n\n")
         lines.append(f"       RELEASE {new_sv_ver}\n\n")
         lines.append("   (this is auto-generated)\n\n")
@@ -308,6 +269,27 @@ def run():
         else:
             file.writelines(lines)
     print(f"Written: {filename}")
+    return lines
+
+def run() -> None:
+    sv: SemVer = get_current_version()
+    new_sv: SemVer = process_tags(sv)
+    create_git_tag(new_sv)
+
+    sv_ver: str = sv.to_string()
+    new_sv_ver: str = new_sv.to_string()
+    commits: List[str] = get_commits(sv_ver, new_sv_ver)
+    print(f"{commits=}")
+    if not commits:
+        return
+
+    gen_list: List[Commit] = process_commits(commits)
+    if not gen_list:
+        return
+
+    grouped: Dict[str, List[Commit]] = group_by_tickets(gen_list)
+    filename: str = f"{PATH}/RELEASE_NOTES_{new_sv_ver}.md"
+    lines: List[str] = generate_release(filename, new_sv_ver, grouped)
 
     orig_data: str = ""
     with open(APPEND_PATH, "r") as file:
